@@ -1,0 +1,61 @@
+# GitLab Pipeline configured for SigNoz
+# Example pipeline optimized for SigNoz observability platform
+
+stages:
+  - build
+  - test
+  - deploy
+  - .post
+
+variables:
+  # SigNoz OTLP collector endpoint
+  OTEL_EXPORTER_OTLP_ENDPOINT: "signoz-otel-collector:4318"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http"
+
+  # Optional: Add service metadata for better SigNoz visualization
+  OTEL_SERVICE_NAME: "${CI_PROJECT_NAMESPACE}/${CI_PROJECT_NAME}"
+  OTEL_SERVICE_VERSION: "${CI_COMMIT_SHA}"
+
+build:
+  stage: build
+  script:
+    - echo "Building application for SigNoz tracing..."
+    - sleep 2
+
+test:
+  stage: test
+  script:
+    - echo "Running tests with SigNoz observability..."
+    - sleep 3
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying with SigNoz trace correlation..."
+    - sleep 2
+
+# Export traces to SigNoz
+otel-export:
+  stage: .post
+  image: golang:1.25
+  script:
+    - export GITLAB_TOKEN=${CI_JOB_TOKEN}
+    - echo "Exporting traces to SigNoz at ${OTEL_EXPORTER_OTLP_ENDPOINT}"
+    - ./gitlab-otel-exporter
+    - echo "View traces at http://signoz:3301/traces"
+  when: always
+  allow_failure: true
+
+# Trigger downstream with SigNoz correlation
+trigger-downstream:
+  stage: deploy
+  needs: ["otel-export"]
+  trigger:
+    project: $CI_PROJECT_NAMESPACE/downstream-project
+    branch: main
+    strategy: depend
+  variables:
+    TRACEPARENT: $TRACE_PARENT
+    SIGNOZ_URL: "http://signoz:3301"
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"

@@ -20,7 +20,7 @@ A minimal OpenTelemetry exporter for GitLab CI/CD pipelines that exports traces 
 
 ```bash
 go mod download
-go build -o gitlab-otel-exporter main.go
+go build -o gitlab-otel-exporter cmd/main.go
 ```
 
 ## Usage
@@ -32,13 +32,14 @@ The exporter runs automatically in your pipeline via the `otel-export` job in th
 ```yaml
 variables:
   OTEL_EXPORTER_OTLP_ENDPOINT: "your-collector:4318"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http"  # http, grpc, or stdout
 
 otel-export:
   stage: .post
   image: golang:1.25
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
-    - go run main.go
+    - go run cmd/main.go
   when: always
   allow_failure: true
 ```
@@ -55,7 +56,7 @@ otel-export:
   stage: .post
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
-    - go run main.go | grep TRACE_PARENT > trace.env
+    - go run cmd/main.go | grep TRACE_PARENT > trace.env
     - source trace.env
   artifacts:
     reports:
@@ -78,6 +79,26 @@ The exporter automatically detects and correlates downstream pipelines when:
 - `TRACEPARENT` environment variable is present
 - GitLab automatically provides `CI_PARENT_PIPELINE_ID` and `CI_PARENT_PROJECT_ID`
 
+### Protocol Configuration
+
+Supports three OTLP protocols:
+
+```yaml
+# HTTP (default) - port 4318
+variables:
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "collector:4318"
+
+# gRPC - port 4317
+variables:
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "collector:4317"
+
+# Console/stdout - for debugging
+variables:
+  OTEL_EXPORTER_OTLP_PROTOCOL: "stdout"
+```
+
 ### Debug Mode
 
 Enable debug mode to print all span attributes:
@@ -88,7 +109,7 @@ otel-export:
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
     - export DEBUG=true
-    - go run main.go
+    - go run cmd/main.go
 ```
 
 ### Console Output
