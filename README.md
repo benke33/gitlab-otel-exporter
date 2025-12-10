@@ -32,6 +32,7 @@ The exporter runs automatically in your pipeline via the `otel-export` job in th
 ```yaml
 variables:
   OTEL_EXPORTER_OTLP_ENDPOINT: "your-collector:4318"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http"  # http, grpc, or stdout
 
 otel-export:
   stage: .post
@@ -77,6 +78,26 @@ The exporter automatically detects and correlates downstream pipelines when:
 - `CI_PIPELINE_SOURCE` is "pipeline" or "trigger"
 - `TRACEPARENT` environment variable is present
 - GitLab automatically provides `CI_PARENT_PIPELINE_ID` and `CI_PARENT_PROJECT_ID`
+
+### Protocol Configuration
+
+Supports three OTLP protocols:
+
+```yaml
+# HTTP (default) - port 4318
+variables:
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "collector:4318"
+
+# gRPC - port 4317
+variables:
+  OTEL_EXPORTER_OTLP_PROTOCOL: "grpc"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "collector:4317"
+
+# Console/stdout - for debugging
+variables:
+  OTEL_EXPORTER_OTLP_PROTOCOL: "stdout"
+```
 
 ### Debug Mode
 

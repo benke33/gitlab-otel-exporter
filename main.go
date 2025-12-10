@@ -15,6 +15,8 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracegrpc"
+	"go.opentelemetry.io/otel/exporters/stdout/stdouttrace"
 	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
@@ -57,13 +59,11 @@ func main() {
 }
 
 func initTracer(ctx context.Context) (*sdktrace.TracerProvider, error) {
-	endpoint := getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", "localhost:4318")
-	fmt.Printf("📡 Connecting to OTLP endpoint: %s\n", endpoint)
+	protocol := getEnv("OTEL_EXPORTER_OTLP_PROTOCOL", "http")
+	endpoint := getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", getDefaultEndpoint(protocol))
+	fmt.Printf("📡 Connecting to OTLP endpoint: %s (protocol: %s)\n", endpoint, protocol)
 
-	exporter, err := otlptracehttp.New(ctx,
-		otlptracehttp.WithEndpoint(endpoint),
-		otlptracehttp.WithInsecure(),
-	)
+	exporter, err := createExporter(ctx, protocol, endpoint)
 	if err != nil {
 		return nil, err
 	}
@@ -416,6 +416,40 @@ func exportTraceContext(ctx context.Context) {
 		if debug {
 			fmt.Printf("   Use this in downstream pipeline variables\n")
 		}
+	}
+}
+
+func createExporter(ctx context.Context, protocol, endpoint string) (sdktrace.SpanExporter, error) {
+	switch protocol {
+	case "http":
+		return otlptracehttp.New(ctx,
+			otlptracehttp.WithEndpoint(endpoint),
+			otlptracehttp.WithInsecure(),
+		)
+	case "grpc":
+		return otlptracegrpc.New(ctx,
+			otlptracegrpc.WithEndpoint(endpoint),
+			otlptracegrpc.WithInsecure(),
+		)
+	case "stdout", "console":
+		return stdouttrace.New(
+			stdouttrace.WithPrettyPrint(),
+		)
+	default:
+		return nil, fmt.Errorf("unsupported protocol: %s (supported: http, grpc, stdout)", protocol)
+	}
+}
+
+func getDefaultEndpoint(protocol string) string {
+	switch protocol {
+	case "http":
+		return "localhost:4318"
+	case "grpc":
+		return "localhost:4317"
+	case "stdout", "console":
+		return "stdout"
+	default:
+		return "localhost:4318"
 	}
 }
 

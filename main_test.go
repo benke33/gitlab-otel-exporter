@@ -451,3 +451,116 @@ func TestDownstreamPipelineIntegration(t *testing.T) {
 		t.Error("downstream pipeline should have parent attributes")
 	}
 }
+
+func TestCreateExporter(t *testing.T) {
+	ctx := context.Background()
+
+	// Test HTTP exporter
+	exporter, err := createExporter(ctx, "http", "localhost:4318")
+	if err != nil {
+		t.Errorf("HTTP exporter creation failed: %v", err)
+	}
+	if exporter == nil {
+		t.Error("HTTP exporter should not be nil")
+	}
+
+	// Test gRPC exporter
+	exporter, err = createExporter(ctx, "grpc", "localhost:4317")
+	if err != nil {
+		t.Errorf("gRPC exporter creation failed: %v", err)
+	}
+	if exporter == nil {
+		t.Error("gRPC exporter should not be nil")
+	}
+
+	// Test stdout exporter
+	exporter, err = createExporter(ctx, "stdout", "stdout")
+	if err != nil {
+		t.Errorf("stdout exporter creation failed: %v", err)
+	}
+	if exporter == nil {
+		t.Error("stdout exporter should not be nil")
+	}
+
+	// Test console alias
+	exporter, err = createExporter(ctx, "console", "stdout")
+	if err != nil {
+		t.Errorf("console exporter creation failed: %v", err)
+	}
+	if exporter == nil {
+		t.Error("console exporter should not be nil")
+	}
+
+	// Test unsupported protocol
+	exporter, err = createExporter(ctx, "invalid", "localhost:4318")
+	if err == nil {
+		t.Error("invalid protocol should return error")
+	}
+	if exporter != nil {
+		t.Error("invalid protocol exporter should be nil")
+	}
+}
+
+func TestGetDefaultEndpoint(t *testing.T) {
+	tests := []struct {
+		protocol string
+		want     string
+	}{
+		{"http", "localhost:4318"},
+		{"grpc", "localhost:4317"},
+		{"stdout", "stdout"},
+		{"console", "stdout"},
+		{"invalid", "localhost:4318"},
+	}
+
+	for _, tt := range tests {
+		got := getDefaultEndpoint(tt.protocol)
+		if got != tt.want {
+			t.Errorf("getDefaultEndpoint(%q) = %q, want %q", tt.protocol, got, tt.want)
+		}
+	}
+}
+
+func TestProtocolConfiguration(t *testing.T) {
+	// Test HTTP protocol (default)
+	_ = os.Unsetenv("OTEL_EXPORTER_OTLP_PROTOCOL")
+	_ = os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	defer func() {
+		_ = os.Unsetenv("OTEL_EXPORTER_OTLP_PROTOCOL")
+		_ = os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	}()
+
+	protocol := getEnv("OTEL_EXPORTER_OTLP_PROTOCOL", "http")
+	if protocol != "http" {
+		t.Errorf("default protocol should be http, got %s", protocol)
+	}
+
+	endpoint := getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", getDefaultEndpoint(protocol))
+	if endpoint != "localhost:4318" {
+		t.Errorf("default HTTP endpoint should be localhost:4318, got %s", endpoint)
+	}
+
+	// Test gRPC protocol
+	_ = os.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "grpc")
+	protocol = getEnv("OTEL_EXPORTER_OTLP_PROTOCOL", "http")
+	if protocol != "grpc" {
+		t.Errorf("gRPC protocol should be grpc, got %s", protocol)
+	}
+
+	endpoint = getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", getDefaultEndpoint(protocol))
+	if endpoint != "localhost:4317" {
+		t.Errorf("default gRPC endpoint should be localhost:4317, got %s", endpoint)
+	}
+
+	// Test stdout protocol
+	_ = os.Setenv("OTEL_EXPORTER_OTLP_PROTOCOL", "stdout")
+	protocol = getEnv("OTEL_EXPORTER_OTLP_PROTOCOL", "http")
+	if protocol != "stdout" {
+		t.Errorf("stdout protocol should be stdout, got %s", protocol)
+	}
+
+	endpoint = getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", getDefaultEndpoint(protocol))
+	if endpoint != "stdout" {
+		t.Errorf("default stdout endpoint should be stdout, got %s", endpoint)
+	}
+}
