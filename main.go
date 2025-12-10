@@ -36,7 +36,7 @@ var debug = os.Getenv("DEBUG") == "true"
 func main() {
 	ctx := context.Background()
 
-	fmt.Println("🚀 Starting OpenTelemetry GitLab CI/CD Collector")
+	fmt.Println("🚀 Starting GitLab OpenTelemetry Exporter")
 
 	tp, err := initTracer(ctx)
 	if err != nil {

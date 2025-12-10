@@ -55,11 +55,11 @@ jobs:
     - uses: actions/setup-go@v5
       with:
         go-version: '1.25.5'
-    - run: go build -o otel-collector main.go
+    - run: go build -o gitlab-otel-exporter main.go
     - uses: actions/upload-artifact@v4
       with:
-        name: otel-collector
-        path: otel-collector
+        name: gitlab-otel-exporter
+        path: gitlab-otel-exporter
 
   release:
     if: github.event_name == 'release'
@@ -74,13 +74,13 @@ jobs:
         go-version: '1.25.5'
     - name: Build binaries
       run: |
-        GOOS=linux GOARCH=amd64 go build -o otel-collector-linux-amd64 main.go
-        GOOS=darwin GOARCH=amd64 go build -o otel-collector-darwin-amd64 main.go
-        GOOS=windows GOARCH=amd64 go build -o otel-collector-windows-amd64.exe main.go
+        GOOS=linux GOARCH=amd64 go build -o gitlab-otel-exporter-linux-amd64 main.go
+        GOOS=darwin GOARCH=amd64 go build -o gitlab-otel-exporter-darwin-amd64 main.go
+        GOOS=windows GOARCH=amd64 go build -o gitlab-otel-exporter-windows-amd64.exe main.go
     - name: Upload release assets
       uses: softprops/action-gh-release@v2
       with:
         files: |
-          otel-collector-linux-amd64
-          otel-collector-darwin-amd64
-          otel-collector-windows-amd64.exe
+          gitlab-otel-exporter-linux-amd64
+          gitlab-otel-exporter-darwin-amd64
+          gitlab-otel-exporter-windows-amd64.exe
