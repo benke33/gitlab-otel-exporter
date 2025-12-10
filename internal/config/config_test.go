@@ -7,9 +7,9 @@ import (
 
 func TestLoad(t *testing.T) {
 	// Clean environment
-	os.Unsetenv("OTEL_EXPORTER_OTLP_PROTOCOL")
-	os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
-	os.Unsetenv("DEBUG")
+	_ = os.Unsetenv("OTEL_EXPORTER_OTLP_PROTOCOL")
+	_ = os.Unsetenv("OTEL_EXPORTER_OTLP_ENDPOINT")
+	_ = os.Unsetenv("DEBUG")
 
 	cfg := Load()
 
