@@ -75,10 +75,10 @@ func TestTriggerType(t *testing.T) {
 }
 
 func TestPipelineAttributes(t *testing.T) {
-	os.Setenv("CI_PIPELINE_NAME", "test-pipeline")
-	os.Setenv("CI_PIPELINE_ID", "123")
-	defer os.Unsetenv("CI_PIPELINE_NAME")
-	defer os.Unsetenv("CI_PIPELINE_ID")
+	_ = os.Setenv("CI_PIPELINE_NAME", "test-pipeline")
+	_ = os.Setenv("CI_PIPELINE_ID", "123")
+	defer func() { _ = os.Unsetenv("CI_PIPELINE_NAME") }()
+	defer func() { _ = os.Unsetenv("CI_PIPELINE_ID") }()
 
 	attrs := pipelineAttributes()
 	if len(attrs) != 7 {
