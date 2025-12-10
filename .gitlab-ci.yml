@@ -13,7 +13,7 @@ variables:
 
 build:
   stage: build
-  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
+  image: golang:1.25
   script:
     - go build -o otel-collector main.go
   artifacts:
@@ -22,9 +22,9 @@ build:
 
 build-buildpack:
   stage: build
-  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/docker:latest
+  image: docker:latest
   services:
-    - name: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/docker:dind
+    - name: docker:dind
       command: ["--tls=false"]
   variables:
     DOCKER_HOST: tcp://docker:2375
@@ -39,7 +39,7 @@ build-buildpack:
 
 test:
   stage: test
-  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
+  image: golang:1.25
   script:
     - go test -v -cover ./...
 
@@ -52,7 +52,7 @@ deploy:
 
 otel-export:
   stage: .post
-  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
+  image: golang:1.25
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
     - go run main.go
