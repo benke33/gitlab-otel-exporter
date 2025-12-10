@@ -1,0 +1,12 @@
+[_]
+schema-version = "0.2"
+
+[[build.buildpacks]]
+uri = "paketo-buildpacks/go"
+
+[build]
+include = [
+  "*.go",
+  "go.mod",
+  "go.sum"
+]

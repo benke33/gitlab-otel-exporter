@@ -1,0 +1,60 @@
+stages:
+  - build
+  - test
+  - deploy
+  - report
+
+default:
+  tags:
+    - internal-hall035
+
+variables:
+  OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4318"
+
+build:
+  stage: build
+  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
+  script:
+    - go build -o otel-collector main.go
+  artifacts:
+    paths:
+      - otel-collector
+
+build-buildpack:
+  stage: build
+  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/docker:latest
+  services:
+    - name: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/docker:dind
+      command: ["--tls=false"]
+  variables:
+    DOCKER_HOST: tcp://docker:2375
+    DOCKER_TLS_CERTDIR: ""
+  before_script:
+    - apk add --no-cache curl bash
+    - curl -sSL "https://github.com/buildpacks/pack/releases/download/v0.39.0/pack-v0.39.0-linux.tgz" | tar -C /usr/local/bin/ --no-same-owner -xzv pack
+    - sleep 5
+    - docker info
+  script:
+    - pack build otel-gitlab-collector --builder paketobuildpacks/builder-jammy-base --trust-builder
+
+test:
+  stage: test
+  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
+  script:
+    - go test -v -cover ./...
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying application..."
+  only:
+    - main
+
+otel-export:
+  stage: .post
+  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
+  script:
+    - export GITLAB_TOKEN=${CI_JOB_TOKEN}
+    - go run main.go
+  when: always
+  allow_failure: true
