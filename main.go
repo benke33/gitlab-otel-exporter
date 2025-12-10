@@ -15,6 +15,7 @@ import (
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/exporters/otlp/otlptrace/otlptracehttp"
+	"go.opentelemetry.io/otel/propagation"
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
@@ -85,6 +86,7 @@ func initTracer(ctx context.Context) (*sdktrace.TracerProvider, error) {
 		sdktrace.WithResource(res),
 	)
 	otel.SetTracerProvider(tp)
+	otel.SetTextMapPropagator(propagation.TraceContext{})
 
 	return tp, nil
 }
@@ -105,6 +107,9 @@ func exportPipelineTrace(ctx context.Context) error {
 		return fmt.Errorf("failed to fetch pipeline: %w", err)
 	}
 
+	// Check for parent pipeline context
+	ctx = extractParentContext(ctx, git, pipeline)
+
 	jobs, err := fetchJobs(git)
 	if err != nil {
 		return fmt.Errorf("failed to fetch jobs: %w", err)
@@ -118,6 +123,11 @@ func exportPipelineTrace(ctx context.Context) error {
 
 	pipelineAttrs := pipelineAttributes()
 	pipelineAttrs = append(pipelineAttrs, flattenMap("", pipeline.Raw)...)
+
+	// Add parent pipeline correlation attributes
+	if parentAttrs := getParentPipelineAttributes(git, pipeline); len(parentAttrs) > 0 {
+		pipelineAttrs = append(pipelineAttrs, parentAttrs...)
+	}
 
 	var startOpts []trace.SpanStartOption
 	if pipeline.CreatedAt != nil {
@@ -133,6 +143,10 @@ func exportPipelineTrace(ctx context.Context) error {
 	if debug {
 		fmt.Printf("   Attributes: %v\n", pipelineAttrs)
 	}
+
+	// Export trace context for downstream pipelines
+	exportTraceContext(ctx)
+
 	defer func() {
 		if pipeline.UpdatedAt != nil {
 			pipelineSpan.End(trace.WithTimestamp(*pipeline.UpdatedAt))
@@ -343,6 +357,67 @@ func triggerType() string {
 }
 
 
+
+func extractParentContext(ctx context.Context, git *gitlab.Client, pipeline *PipelineData) context.Context {
+	// Check if this pipeline was triggered by another pipeline
+	if os.Getenv("CI_PIPELINE_SOURCE") != "pipeline" && os.Getenv("CI_PIPELINE_SOURCE") != "trigger" {
+		return ctx
+	}
+
+	// Look for parent pipeline trace context in variables
+	if traceParent := os.Getenv("TRACEPARENT"); traceParent != "" {
+		carrier := propagation.MapCarrier{"traceparent": traceParent}
+		return otel.GetTextMapPropagator().Extract(ctx, carrier)
+	}
+
+	// Try to extract from pipeline variables if available
+	projectID := os.Getenv("CI_PROJECT_ID")
+	pipelineID, _ := strconv.Atoi(os.Getenv("CI_PIPELINE_ID"))
+
+	if variables, _, err := git.Pipelines.GetPipelineVariables(projectID, pipelineID, nil); err == nil {
+		for _, v := range variables {
+			if v.Key == "TRACEPARENT" {
+				carrier := propagation.MapCarrier{"traceparent": v.Value}
+				return otel.GetTextMapPropagator().Extract(ctx, carrier)
+			}
+		}
+	}
+
+	return ctx
+}
+
+func getParentPipelineAttributes(git *gitlab.Client, pipeline *PipelineData) []attribute.KeyValue {
+	var attrs []attribute.KeyValue
+
+	// Add parent pipeline info for downstream pipelines
+	if os.Getenv("CI_PIPELINE_SOURCE") == "pipeline" || os.Getenv("CI_PIPELINE_SOURCE") == "trigger" {
+		if parentPipelineID := os.Getenv("CI_PARENT_PIPELINE_ID"); parentPipelineID != "" {
+			attrs = append(attrs, attribute.String("cicd.pipeline.parent.id", parentPipelineID))
+		}
+		if parentProjectID := os.Getenv("CI_PARENT_PROJECT_ID"); parentProjectID != "" {
+			attrs = append(attrs, attribute.String("cicd.pipeline.parent.project.id", parentProjectID))
+		}
+
+		// Try to get more parent info from API if available
+		if pipeline.User != nil && pipeline.User.ID != 0 {
+			// This is a best-effort attempt to correlate with parent
+			attrs = append(attrs, attribute.String("cicd.pipeline.trigger.user.id", fmt.Sprintf("%d", pipeline.User.ID)))
+		}
+	}
+
+	return attrs
+}
+
+func exportTraceContext(ctx context.Context) {
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	if traceParent := carrier["traceparent"]; traceParent != "" {
+		fmt.Printf("🔗 TRACE_PARENT=%s\n", traceParent)
+		if debug {
+			fmt.Printf("   Use this in downstream pipeline variables\n")
+		}
+	}
+}
 
 func getEnv(key, fallback string) string {
 	if value := os.Getenv(key); value != "" {

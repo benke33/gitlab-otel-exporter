@@ -1,0 +1,65 @@
+@startuml Single Pipeline E2E Flow
+!theme plain
+title GitLab OpenTelemetry Exporter - Single Pipeline Flow
+
+participant "GitLab CI" as GL
+participant "Pipeline Jobs" as PJ
+participant "OTEL Exporter" as EX
+participant "OTLP Collector" as OC
+participant "Tracing Backend" as TB
+
+== Pipeline Execution ==
+GL -> PJ: Start pipeline stages
+activate PJ
+
+PJ -> PJ: build stage
+note right: Job executes normally
+
+PJ -> PJ: test stage
+note right: Job executes normally
+
+PJ -> PJ: deploy stage
+note right: Job executes normally
+
+== Post Stage - Trace Export ==
+PJ -> EX: Run otel-export job (.post stage)
+activate EX
+note right: Runs regardless of pipeline status
+
+EX -> GL: Fetch pipeline data via API
+GL --> EX: Pipeline metadata + all jobs
+
+EX -> EX: Create pipeline span
+note right: Root span for entire pipeline
+
+EX -> EX: Create job spans
+note right: Child spans for each job/stage
+
+EX -> EX: Export trace context
+note right: Generate TRACE_PARENT for downstream use
+
+EX -> OC: Export spans via OTLP HTTP
+activate OC
+OC -> TB: Forward traces
+activate TB
+
+TB --> OC: Ack
+deactivate TB
+OC --> EX: Ack
+deactivate OC
+
+EX --> PJ: Complete
+deactivate EX
+PJ --> GL: Pipeline complete
+deactivate PJ
+
+== Trace Structure ==
+note over TB
+**Service**: namespace/project
+**Root Span**: namespace/project #pipelineID
+**Job Spans**: Stage: job_name - job_id: 123
+- All spans include CI/CD semantic conventions
+- Complete GitLab metadata as attributes
+end note
+
+@enduml

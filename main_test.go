@@ -8,8 +8,10 @@ import (
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
 	"go.opentelemetry.io/otel"
+	"go.opentelemetry.io/otel/propagation"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
+	"go.opentelemetry.io/otel/trace"
 )
 
 func TestGetEnv(t *testing.T) {
@@ -321,5 +323,131 @@ func TestFlattenMapWithNilValues(t *testing.T) {
 		if attr.Key == "bool_true" && attr.Value.AsString() != "true" {
 			t.Errorf("bool true not converted: %v", attr.Value.AsString())
 		}
+	}
+}
+
+func TestExtractParentContext(t *testing.T) {
+	// Test non-triggered pipeline
+	_ = os.Setenv("CI_PIPELINE_SOURCE", "push")
+	defer func() { _ = os.Unsetenv("CI_PIPELINE_SOURCE") }()
+
+	ctx := context.Background()
+	result := extractParentContext(ctx, nil, nil)
+	if result != ctx {
+		t.Error("non-triggered pipeline should return original context")
+	}
+
+	// Test triggered pipeline with TRACEPARENT
+	_ = os.Setenv("CI_PIPELINE_SOURCE", "pipeline")
+	_ = os.Setenv("TRACEPARENT", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+	defer func() { _ = os.Unsetenv("TRACEPARENT") }()
+
+	// Setup propagator for test
+	otel.SetTextMapPropagator(propagation.TraceContext{})
+
+	result = extractParentContext(ctx, nil, nil)
+	// Check if span context was extracted by looking for trace ID
+	spanCtx := trace.SpanContextFromContext(result)
+	if !spanCtx.IsValid() {
+		t.Error("triggered pipeline with TRACEPARENT should have valid span context")
+	}
+}
+
+func TestGetParentPipelineAttributes(t *testing.T) {
+	// Test non-triggered pipeline
+	_ = os.Setenv("CI_PIPELINE_SOURCE", "push")
+	defer func() { _ = os.Unsetenv("CI_PIPELINE_SOURCE") }()
+
+	attrs := getParentPipelineAttributes(nil, nil)
+	if len(attrs) != 0 {
+		t.Errorf("non-triggered pipeline should have no parent attributes, got %d", len(attrs))
+	}
+
+	// Test triggered pipeline with parent info
+	_ = os.Setenv("CI_PIPELINE_SOURCE", "trigger")
+	_ = os.Setenv("CI_PARENT_PIPELINE_ID", "123")
+	_ = os.Setenv("CI_PARENT_PROJECT_ID", "456")
+	defer func() {
+		_ = os.Unsetenv("CI_PARENT_PIPELINE_ID")
+		_ = os.Unsetenv("CI_PARENT_PROJECT_ID")
+	}()
+
+	pipeline := &PipelineData{
+		Pipeline: &gitlab.Pipeline{
+			User: &gitlab.BasicUser{ID: 789},
+		},
+	}
+
+	attrs = getParentPipelineAttributes(nil, pipeline)
+	if len(attrs) != 3 {
+		t.Errorf("triggered pipeline should have 3 parent attributes, got %d", len(attrs))
+	}
+
+	// Verify specific attributes
+	found := map[string]bool{}
+	for _, attr := range attrs {
+		switch attr.Key {
+		case "cicd.pipeline.parent.id":
+			if attr.Value.AsString() != "123" {
+				t.Errorf("parent.id should be 123, got %s", attr.Value.AsString())
+			}
+			found["parent.id"] = true
+		case "cicd.pipeline.parent.project.id":
+			if attr.Value.AsString() != "456" {
+				t.Errorf("parent.project.id should be 456, got %s", attr.Value.AsString())
+			}
+			found["parent.project.id"] = true
+		case "cicd.pipeline.trigger.user.id":
+			if attr.Value.AsString() != "789" {
+				t.Errorf("trigger.user.id should be 789, got %s", attr.Value.AsString())
+			}
+			found["trigger.user.id"] = true
+		}
+	}
+
+	if len(found) != 3 {
+		t.Errorf("not all expected attributes found: %v", found)
+	}
+}
+
+func TestDownstreamPipelineIntegration(t *testing.T) {
+	// Simulate downstream pipeline environment
+	_ = os.Setenv("CI_PIPELINE_SOURCE", "pipeline")
+	_ = os.Setenv("CI_PARENT_PIPELINE_ID", "100")
+	_ = os.Setenv("CI_PARENT_PROJECT_ID", "200")
+	_ = os.Setenv("TRACEPARENT", "00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01")
+	_ = os.Setenv("CI_PROJECT_NAMESPACE", "test")
+	_ = os.Setenv("CI_PROJECT_NAME", "downstream")
+	defer func() {
+		_ = os.Unsetenv("CI_PIPELINE_SOURCE")
+		_ = os.Unsetenv("CI_PARENT_PIPELINE_ID")
+		_ = os.Unsetenv("CI_PARENT_PROJECT_ID")
+		_ = os.Unsetenv("TRACEPARENT")
+		_ = os.Unsetenv("CI_PROJECT_NAMESPACE")
+		_ = os.Unsetenv("CI_PROJECT_NAME")
+	}()
+
+	// Test pipeline attributes include parent info
+	attrs := pipelineAttributes()
+	found := false
+	for _, attr := range attrs {
+		if attr.Key == "cicd.pipeline.trigger.type" && attr.Value.AsString() == "other_pipeline" {
+			found = true
+			break
+		}
+	}
+	if !found {
+		t.Error("downstream pipeline should have trigger.type = other_pipeline")
+	}
+
+	// Test parent attributes are generated
+	pipeline := &PipelineData{
+		Pipeline: &gitlab.Pipeline{
+			User: &gitlab.BasicUser{ID: 300},
+		},
+	}
+	parentAttrs := getParentPipelineAttributes(nil, pipeline)
+	if len(parentAttrs) == 0 {
+		t.Error("downstream pipeline should have parent attributes")
 	}
 }

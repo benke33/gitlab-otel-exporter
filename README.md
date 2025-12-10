@@ -8,6 +8,7 @@ A minimal OpenTelemetry exporter for GitLab CI/CD pipelines that exports traces 
 - Creates one span per job/stage in the pipeline
 - Exports traces to OTLP HTTP endpoint with parent-child relationships
 - Follows OpenTelemetry CI/CD semantic conventions
+- **Downstream pipeline correlation** - automatically links triggered pipelines to parent traces
 - Runs in `.post` stage (executes regardless of pipeline status)
 - Real-time console output with progress indicators
 - Debug mode to print all span attributes
@@ -44,6 +45,39 @@ otel-export:
 
 The `.post` stage ensures the exporter runs after all other stages complete, regardless of pipeline success or failure. The exporter uses `CI_JOB_TOKEN` to authenticate with the GitLab API and fetch all pipeline jobs.
 
+### Downstream Pipeline Correlation
+
+For pipelines that trigger other pipelines, trace context is automatically propagated using GitLab's `trigger` keyword:
+
+```yaml
+# First run the exporter to generate trace context
+otel-export:
+  stage: .post
+  script:
+    - export GITLAB_TOKEN=${CI_JOB_TOKEN}
+    - go run main.go | grep TRACE_PARENT > trace.env
+    - source trace.env
+  artifacts:
+    reports:
+      dotenv: trace.env
+
+# Then trigger downstream with trace context
+trigger-downstream:
+  stage: deploy
+  needs: ["otel-export"]
+  trigger:
+    project: group/downstream-project
+    branch: main
+    strategy: depend
+  variables:
+    TRACEPARENT: $TRACE_PARENT
+```
+
+The exporter automatically detects and correlates downstream pipelines when:
+- `CI_PIPELINE_SOURCE` is "pipeline" or "trigger"
+- `TRACEPARENT` environment variable is present
+- GitLab automatically provides `CI_PARENT_PIPELINE_ID` and `CI_PARENT_PROJECT_ID`
+
 ### Debug Mode
 
 Enable debug mode to print all span attributes:
@@ -67,12 +101,15 @@ The exporter provides real-time feedback:
 📥 Fetching pipeline data from GitLab API...
 📋 Found 5 jobs in pipeline
 📤 Creating pipeline span: namespace/project #12345
+🔗 TRACE_PARENT=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 📤 Creating job spans...
    ├─ Job: build (status: success)
    ├─ Job: test (status: success)
    ├─ Job: deploy (status: failed)
 ✅ Traces exported successfully
 ```
+
+The `TRACE_PARENT` value can be used in downstream pipeline triggers for trace correlation.
 
 ### Trace Structure
 
@@ -92,6 +129,9 @@ The exporter provides real-time feedback:
 - `vcs.repository.ref.revision`
 - `vcs.repository.ref.type`
 - `cicd.pipeline.trigger.type`
+- `cicd.pipeline.parent.id` (for downstream pipelines)
+- `cicd.pipeline.parent.project.id` (for downstream pipelines)
+- `cicd.pipeline.trigger.user.id` (for triggered pipelines)
 - All GitLab API pipeline metadata (flattened)
 
 **Job Span:**

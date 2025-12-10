@@ -1,0 +1,78 @@
+@startuml Downstream Pipeline E2E Flow
+!theme plain
+title GitLab OpenTelemetry Exporter - Downstream Pipeline Correlation
+
+participant "Parent Pipeline" as PP
+participant "Parent OTEL" as PEX
+participant "GitLab Trigger" as GT
+participant "Child Pipeline" as CP
+participant "Child OTEL" as CEX
+participant "OTLP Collector" as OC
+participant "Tracing Backend" as TB
+
+== Parent Pipeline Execution ==
+PP -> PP: Execute stages (build, test, deploy)
+
+PP -> PEX: Run otel-export (.post stage)
+activate PEX
+
+PEX -> PEX: Create parent pipeline span
+note right: Root span with trace ID
+
+PEX -> PEX: Export TRACE_PARENT
+note right: 00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
+
+PEX -> OC: Export parent spans
+PEX --> PP: Save TRACE_PARENT to dotenv
+deactivate PEX
+
+== Downstream Trigger ==
+PP -> GT: trigger downstream with TRACEPARENT
+activate GT
+note right: GitLab trigger keyword with variables
+
+GT -> CP: Start child pipeline
+activate CP
+note right: CI_PIPELINE_SOURCE=pipeline\nTRACEPARENT=00-4bf92f...
+
+== Child Pipeline Execution ==
+CP -> CP: Execute child stages
+
+CP -> CEX: Run otel-export (.post stage)
+activate CEX
+
+CEX -> CEX: Extract parent context
+note right: Parse TRACEPARENT from env
+
+CEX -> CEX: Create child pipeline span
+note right: Child of parent trace\nSame trace ID, new span ID
+
+CEX -> CEX: Add correlation attributes
+note right: cicd.pipeline.parent.id\ncicd.pipeline.parent.project.id
+
+CEX -> OC: Export child spans
+activate OC
+OC -> TB: Forward correlated traces
+activate TB
+
+== Distributed Trace ==
+note over TB
+**Parent Trace**: namespace/parent-project #123
+├─ **Child Trace**: namespace/child-project #456
+   └─ Linked by same trace ID
+   └─ Parent-child relationship preserved
+end note
+
+TB --> OC: Ack
+deactivate TB
+OC --> CEX: Ack
+deactivate OC
+
+CEX --> CP: Complete
+deactivate CEX
+CP --> GT: Child complete
+deactivate CP
+GT --> PP: Trigger complete
+deactivate GT
+
+@enduml
