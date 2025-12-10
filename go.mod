@@ -1,4 +1,4 @@
-module gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter
+module github.com/benke33/gitlab-otel-exporter
 
 go 1.25
 
