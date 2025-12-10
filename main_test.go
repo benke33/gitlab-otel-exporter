@@ -6,7 +6,7 @@ import (
 	"testing"
 	"time"
 
-	gitlab "github.com/xanzy/go-gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
@@ -25,8 +25,8 @@ func TestGetEnv(t *testing.T) {
 
 	for _, tt := range tests {
 		if tt.envValue != "" {
-			os.Setenv(tt.key, tt.envValue)
-			defer os.Unsetenv(tt.key)
+			_ = os.Setenv(tt.key, tt.envValue)
+			defer func() { _ = os.Unsetenv(tt.key) }()
 		}
 		if got := getEnv(tt.key, tt.fallback); got != tt.want {
 			t.Errorf("getEnv(%q, %q) = %q, want %q", tt.key, tt.fallback, got, tt.want)
@@ -44,8 +44,8 @@ func TestRefType(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		os.Setenv("CI_COMMIT_TAG", tt.tag)
-		defer os.Unsetenv("CI_COMMIT_TAG")
+		_ = os.Setenv("CI_COMMIT_TAG", tt.tag)
+		defer func() { _ = os.Unsetenv("CI_COMMIT_TAG") }()
 		if got := refType(); got != tt.want {
 			t.Errorf("refType() = %q, want %q", got, tt.want)
 		}
@@ -66,8 +66,8 @@ func TestTriggerType(t *testing.T) {
 	}
 
 	for _, tt := range tests {
-		os.Setenv("CI_PIPELINE_SOURCE", tt.source)
-		defer os.Unsetenv("CI_PIPELINE_SOURCE")
+		_ = os.Setenv("CI_PIPELINE_SOURCE", tt.source)
+		defer func() { _ = os.Unsetenv("CI_PIPELINE_SOURCE") }()
 		if got := triggerType(); got != tt.want {
 			t.Errorf("triggerType() with source %q = %q, want %q", tt.source, got, tt.want)
 		}
@@ -115,7 +115,7 @@ func TestExportJobSpan(t *testing.T) {
 		sdktrace.WithSyncer(exporter),
 	)
 	otel.SetTracerProvider(tp)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	tracer := otel.Tracer("test")
 	ctx := context.Background()
@@ -139,7 +139,7 @@ func TestExportJobSpan(t *testing.T) {
 		},
 	}
 
-	exportJobSpan(ctx, tracer, job)
+	_ = exportJobSpan(ctx, tracer, job)
 
 	spans := exporter.GetSpans()
 	if len(spans) != 1 {
@@ -257,7 +257,7 @@ func TestExportJobSpanWithNilTimestamps(t *testing.T) {
 		sdktrace.WithSyncer(exporter),
 	)
 	otel.SetTracerProvider(tp)
-	defer tp.Shutdown(context.Background())
+	defer func() { _ = tp.Shutdown(context.Background()) }()
 
 	tracer := otel.Tracer("test")
 	ctx := context.Background()

@@ -10,7 +10,7 @@ import (
 	"strconv"
 	"strings"
 
-	gitlab "github.com/xanzy/go-gitlab"
+	gitlab "gitlab.com/gitlab-org/api/client-go"
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/attribute"
 	"go.opentelemetry.io/otel/codes"
@@ -92,7 +92,7 @@ func initTracer(ctx context.Context) (*sdktrace.TracerProvider, error) {
 func exportPipelineTrace(ctx context.Context) error {
 	tracer := otel.Tracer("gitlab-ci-collector")
 
-	git, err := gitlab.NewJobClient(os.Getenv("GITLAB_TOKEN"),
+	git, err := gitlab.NewClient(os.Getenv("GITLAB_TOKEN"),
 		gitlab.WithBaseURL(os.Getenv("CI_SERVER_URL")),
 	)
 	if err != nil {
@@ -191,7 +191,7 @@ func fetchPipeline(git *gitlab.Client) (*PipelineData, error) {
 	projectID := os.Getenv("CI_PROJECT_ID")
 	pipelineID, _ := strconv.Atoi(os.Getenv("CI_PIPELINE_ID"))
 
-	pipeline, _, err := git.Pipelines.GetPipeline(projectID, pipelineID)
+	pipeline, _, err := git.Pipelines.GetPipeline(projectID, pipelineID, nil)
 	if err != nil {
 		return nil, err
 	}
@@ -209,7 +209,7 @@ func fetchJobs(git *gitlab.Client) ([]*JobData, error) {
 	projectID := os.Getenv("CI_PROJECT_ID")
 	pipelineID, _ := strconv.Atoi(os.Getenv("CI_PIPELINE_ID"))
 
-	jobs, _, err := git.Jobs.ListPipelineJobs(projectID, pipelineID, &gitlab.ListJobsOptions{})
+	jobs, _, err := git.Jobs.ListPipelineJobs(projectID, pipelineID, &gitlab.ListJobsOptions{}, nil)
 	if err != nil {
 		return nil, err
 	}
