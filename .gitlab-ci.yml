@@ -15,7 +15,7 @@ build:
   stage: build
   image: golang:1.25
   script:
-    - go build -o otel-collector main.go
+    - go build -o otel-collector cmd/main.go
   artifacts:
     paths:
       - otel-collector
@@ -55,6 +55,6 @@ otel-export:
   image: golang:1.25
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
-    - go run main.go
+    - go run cmd/main.go
   when: always
   allow_failure: true
