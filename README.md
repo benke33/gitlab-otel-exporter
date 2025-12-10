@@ -1,6 +1,6 @@
-# OpenTelemetry GitLab CI/CD Collector
+# GitLab OpenTelemetry Exporter
 
-A minimal OpenTelemetry collector for GitLab CI/CD pipelines that exports traces following the [CI/CD semantic conventions](https://opentelemetry.io/docs/specs/semconv/cicd/cicd-spans/).
+A minimal OpenTelemetry exporter for GitLab CI/CD pipelines that exports traces following the [CI/CD semantic conventions](https://opentelemetry.io/docs/specs/semconv/cicd/cicd-spans/).
 
 ## Features
 
@@ -19,14 +19,14 @@ A minimal OpenTelemetry collector for GitLab CI/CD pipelines that exports traces
 
 ```bash
 go mod download
-go build -o otel-collector main.go
+go build -o gitlab-otel-exporter main.go
 ```
 
 ## Usage
 
 ### GitLab CI/CD Integration
 
-The collector runs automatically in your pipeline via the `otel-export` job in the `.post` stage:
+The exporter runs automatically in your pipeline via the `otel-export` job in the `.post` stage:
 
 ```yaml
 variables:
@@ -42,7 +42,7 @@ otel-export:
   allow_failure: true
 ```
 
-The `.post` stage ensures the collector runs after all other stages complete, regardless of pipeline success or failure. The collector uses `CI_JOB_TOKEN` to authenticate with the GitLab API and fetch all pipeline jobs.
+The `.post` stage ensures the exporter runs after all other stages complete, regardless of pipeline success or failure. The exporter uses `CI_JOB_TOKEN` to authenticate with the GitLab API and fetch all pipeline jobs.
 
 ### Debug Mode
 
@@ -59,10 +59,10 @@ otel-export:
 
 ### Console Output
 
-The collector provides real-time feedback:
+The exporter provides real-time feedback:
 
 ```
-🚀 Starting OpenTelemetry GitLab CI/CD Collector
+🚀 Starting GitLab OpenTelemetry Exporter
 📡 Connecting to OTLP endpoint: collector:4318
 📥 Fetching pipeline data from GitLab API...
 📋 Found 5 jobs in pipeline
@@ -107,15 +107,15 @@ The collector provides real-time feedback:
 ### Using Dockerfile
 
 ```bash
-docker build -t otel-gitlab-collector .
-docker run -e OTEL_EXPORTER_OTLP_ENDPOINT=collector:4318 otel-gitlab-collector
+docker build -t gitlab-otel-exporter .
+docker run -e OTEL_EXPORTER_OTLP_ENDPOINT=collector:4318 gitlab-otel-exporter
 ```
 
 ### Using Cloud Native Buildpacks
 
 ```bash
-pack build otel-gitlab-collector --builder paketobuildpacks/builder-jammy-base --trust-builder
-docker run -e OTEL_EXPORTER_OTLP_ENDPOINT=collector:4318 otel-gitlab-collector
+pack build gitlab-otel-exporter --builder paketobuildpacks/builder-jammy-base --trust-builder
+docker run -e OTEL_EXPORTER_OTLP_ENDPOINT=collector:4318 gitlab-otel-exporter
 ```
 
 The project includes `project.toml` configuration for Paketo buildpacks with Go 1.25 support.
