@@ -1,0 +1,60 @@
+# Parent Pipeline Example - Demonstrates downstream pipeline correlation
+# This pipeline triggers a child pipeline and passes trace context
+
+stages:
+  - build
+  - test
+  - deploy
+  - .post
+
+variables:
+  OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4318"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http"
+
+# Normal pipeline stages
+build:
+  stage: build
+  script:
+    - echo "Building application..."
+    - sleep 2
+
+test:
+  stage: test
+  script:
+    - echo "Running tests..."
+    - sleep 3
+
+deploy:
+  stage: deploy
+  script:
+    - echo "Deploying to staging..."
+    - sleep 2
+
+# Export traces and generate trace context
+otel-export:
+  stage: .post
+  image: golang:1.25
+  script:
+    - export GITLAB_TOKEN=${CI_JOB_TOKEN}
+    - ./gitlab-otel-exporter | grep TRACE_PARENT > trace.env || true
+    - cat trace.env
+  artifacts:
+    reports:
+      dotenv: trace.env
+    expire_in: 1 hour
+  when: always
+  allow_failure: true
+
+# Trigger downstream pipeline with trace context
+trigger-downstream:
+  stage: deploy
+  needs: ["otel-export"]
+  trigger:
+    project: $CI_PROJECT_NAMESPACE/child-pipeline-example
+    branch: main
+    strategy: depend
+  variables:
+    TRACEPARENT: $TRACE_PARENT
+    PARENT_PIPELINE_URL: $CI_PIPELINE_URL
+  rules:
+    - if: $CI_COMMIT_BRANCH == "main"

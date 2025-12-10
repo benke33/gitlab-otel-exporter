@@ -1,0 +1,40 @@
+# Child Pipeline Example - Receives trace context from parent
+# This pipeline is triggered by the parent and creates correlated spans
+
+stages:
+  - validate
+  - deploy-prod
+  - .post
+
+variables:
+  OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4318"
+  OTEL_EXPORTER_OTLP_PROTOCOL: "http"
+
+# Show received trace context
+validate:
+  stage: validate
+  script:
+    - echo "Child pipeline started"
+    - echo "Parent pipeline URL: $PARENT_PIPELINE_URL"
+    - echo "Trace context: $TRACEPARENT"
+    - echo "Pipeline source: $CI_PIPELINE_SOURCE"
+    - echo "Parent pipeline ID: $CI_PARENT_PIPELINE_ID"
+
+# Production deployment
+deploy-prod:
+  stage: deploy-prod
+  script:
+    - echo "Deploying to production..."
+    - echo "This deployment is traced back to parent pipeline"
+    - sleep 5
+
+# Export correlated traces
+otel-export:
+  stage: .post
+  image: golang:1.25
+  script:
+    - export GITLAB_TOKEN=${CI_JOB_TOKEN}
+    - echo "Exporting child pipeline traces..."
+    - ./gitlab-otel-exporter
+  when: always
+  allow_failure: true

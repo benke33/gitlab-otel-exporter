@@ -20,7 +20,7 @@ A minimal OpenTelemetry exporter for GitLab CI/CD pipelines that exports traces 
 
 ```bash
 go mod download
-go build -o gitlab-otel-exporter main.go
+go build -o gitlab-otel-exporter cmd/main.go
 ```
 
 ## Usage
@@ -39,7 +39,7 @@ otel-export:
   image: golang:1.25
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
-    - go run main.go
+    - go run cmd/main.go
   when: always
   allow_failure: true
 ```
@@ -56,7 +56,7 @@ otel-export:
   stage: .post
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
-    - go run main.go | grep TRACE_PARENT > trace.env
+    - go run cmd/main.go | grep TRACE_PARENT > trace.env
     - source trace.env
   artifacts:
     reports:
@@ -109,7 +109,7 @@ otel-export:
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
     - export DEBUG=true
-    - go run main.go
+    - go run cmd/main.go
 ```
 
 ### Console Output
