@@ -143,6 +143,10 @@ func exportPipelineTrace(ctx context.Context) error {
 	if debug {
 		fmt.Printf("   Attributes: %v\n", pipelineAttrs)
 	}
+
+	// Export trace context for downstream pipelines
+	exportTraceContext(ctx)
+
 	defer func() {
 		if pipeline.UpdatedAt != nil {
 			pipelineSpan.End(trace.WithTimestamp(*pipeline.UpdatedAt))
@@ -402,6 +406,17 @@ func getParentPipelineAttributes(git *gitlab.Client, pipeline *PipelineData) []a
 	}
 
 	return attrs
+}
+
+func exportTraceContext(ctx context.Context) {
+	carrier := propagation.MapCarrier{}
+	otel.GetTextMapPropagator().Inject(ctx, carrier)
+	if traceParent := carrier["traceparent"]; traceParent != "" {
+		fmt.Printf("🔗 TRACE_PARENT=%s\n", traceParent)
+		if debug {
+			fmt.Printf("   Use this in downstream pipeline variables\n")
+		}
+	}
 }
 
 func getEnv(key, fallback string) string {

@@ -47,26 +47,36 @@ The `.post` stage ensures the exporter runs after all other stages complete, reg
 
 ### Downstream Pipeline Correlation
 
-For pipelines that trigger other pipelines, trace context is automatically propagated:
+For pipelines that trigger other pipelines, trace context is automatically propagated using GitLab's `trigger` keyword:
 
 ```yaml
-# Parent pipeline job that triggers downstream
+# First run the exporter to generate trace context
+otel-export:
+  stage: .post
+  script:
+    - export GITLAB_TOKEN=${CI_JOB_TOKEN}
+    - go run main.go | grep TRACE_PARENT > trace.env
+    - source trace.env
+  artifacts:
+    reports:
+      dotenv: trace.env
+
+# Then trigger downstream with trace context
 trigger-downstream:
   stage: deploy
-  script:
-    - |
-      # Export current trace context for downstream pipeline
-      TRACEPARENT=$(echo $TRACE_PARENT)
-      curl -X POST "$CI_API_V4_URL/projects/$DOWNSTREAM_PROJECT_ID/trigger/pipeline" \
-        -F "token=$TRIGGER_TOKEN" \
-        -F "ref=main" \
-        -F "variables[TRACEPARENT]=$TRACEPARENT"
+  needs: ["otel-export"]
+  trigger:
+    project: group/downstream-project
+    branch: main
+    strategy: depend
+  variables:
+    TRACEPARENT: $TRACE_PARENT
 ```
 
 The exporter automatically detects and correlates downstream pipelines when:
 - `CI_PIPELINE_SOURCE` is "pipeline" or "trigger"
 - `TRACEPARENT` environment variable is present
-- Parent pipeline variables contain trace context
+- GitLab automatically provides `CI_PARENT_PIPELINE_ID` and `CI_PARENT_PROJECT_ID`
 
 ### Debug Mode
 
@@ -91,12 +101,15 @@ The exporter provides real-time feedback:
 📥 Fetching pipeline data from GitLab API...
 📋 Found 5 jobs in pipeline
 📤 Creating pipeline span: namespace/project #12345
+🔗 TRACE_PARENT=00-4bf92f3577b34da6a3ce929d0e0e4736-00f067aa0ba902b7-01
 📤 Creating job spans...
    ├─ Job: build (status: success)
    ├─ Job: test (status: success)
    ├─ Job: deploy (status: failed)
 ✅ Traces exported successfully
 ```
+
+The `TRACE_PARENT` value can be used in downstream pipeline triggers for trace correlation.
 
 ### Trace Structure
 
