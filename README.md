@@ -8,6 +8,7 @@ A minimal OpenTelemetry exporter for GitLab CI/CD pipelines that exports traces 
 - Creates one span per job/stage in the pipeline
 - Exports traces to OTLP HTTP endpoint with parent-child relationships
 - Follows OpenTelemetry CI/CD semantic conventions
+- **Downstream pipeline correlation** - automatically links triggered pipelines to parent traces
 - Runs in `.post` stage (executes regardless of pipeline status)
 - Real-time console output with progress indicators
 - Debug mode to print all span attributes
@@ -43,6 +44,29 @@ otel-export:
 ```
 
 The `.post` stage ensures the exporter runs after all other stages complete, regardless of pipeline success or failure. The exporter uses `CI_JOB_TOKEN` to authenticate with the GitLab API and fetch all pipeline jobs.
+
+### Downstream Pipeline Correlation
+
+For pipelines that trigger other pipelines, trace context is automatically propagated:
+
+```yaml
+# Parent pipeline job that triggers downstream
+trigger-downstream:
+  stage: deploy
+  script:
+    - |
+      # Export current trace context for downstream pipeline
+      TRACEPARENT=$(echo $TRACE_PARENT)
+      curl -X POST "$CI_API_V4_URL/projects/$DOWNSTREAM_PROJECT_ID/trigger/pipeline" \
+        -F "token=$TRIGGER_TOKEN" \
+        -F "ref=main" \
+        -F "variables[TRACEPARENT]=$TRACEPARENT"
+```
+
+The exporter automatically detects and correlates downstream pipelines when:
+- `CI_PIPELINE_SOURCE` is "pipeline" or "trigger"
+- `TRACEPARENT` environment variable is present
+- Parent pipeline variables contain trace context
 
 ### Debug Mode
 
@@ -92,6 +116,9 @@ The exporter provides real-time feedback:
 - `vcs.repository.ref.revision`
 - `vcs.repository.ref.type`
 - `cicd.pipeline.trigger.type`
+- `cicd.pipeline.parent.id` (for downstream pipelines)
+- `cicd.pipeline.parent.project.id` (for downstream pipelines)
+- `cicd.pipeline.trigger.user.id` (for triggered pipelines)
 - All GitLab API pipeline metadata (flattened)
 
 **Job Span:**
