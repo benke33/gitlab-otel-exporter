@@ -10,3 +10,4 @@ gitlab-otel-exporter
 app
 .gitlab-ci-local
 bin/
+otel-collector

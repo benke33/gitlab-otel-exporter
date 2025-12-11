@@ -8,7 +8,7 @@ import (
 
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/propagation"
-	"github.com/benke33/gitlab-otel-exporter/internal/gitlab"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/gitlab"
 )
 
 // ExtractParentContext extracts trace context from parent pipeline
@@ -45,7 +45,7 @@ func ExportTraceContext(ctx context.Context, debug bool) {
 	carrier := propagation.MapCarrier{}
 	otel.GetTextMapPropagator().Inject(ctx, carrier)
 	if traceParent := carrier["traceparent"]; traceParent != "" {
-		fmt.Printf("🔗 TRACE_PARENT=%s\n", traceParent)
+		fmt.Printf("TRACE_PARENT=%s\n", traceParent)
 		if debug {
 			fmt.Printf("   Use this in downstream pipeline variables\n")
 		}

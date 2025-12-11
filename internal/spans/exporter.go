@@ -9,11 +9,11 @@ import (
 	"go.opentelemetry.io/otel"
 	"go.opentelemetry.io/otel/codes"
 	"go.opentelemetry.io/otel/trace"
-	"github.com/benke33/gitlab-otel-exporter/internal/config"
-	"github.com/benke33/gitlab-otel-exporter/internal/gitlab"
-	otelutil "github.com/benke33/gitlab-otel-exporter/internal/otel"
-	"github.com/benke33/gitlab-otel-exporter/internal/utils"
-	"github.com/benke33/gitlab-otel-exporter/pkg/semconv"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/config"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/gitlab"
+	otelutil "gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/otel"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/utils"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/pkg/semconv"
 )
 
 // Exporter handles span creation and export
@@ -34,10 +34,10 @@ func NewExporter(cfg *config.Config, gitClient *gitlab.Client) *Exporter {
 
 // ExportPipeline exports traces for the entire pipeline
 func (e *Exporter) ExportPipeline(ctx context.Context) error {
-	fmt.Println("📥 Fetching pipeline data from GitLab API...")
+	fmt.Println("Fetching pipeline data...")
 	pipeline, err := e.gitClient.FetchPipeline()
 	if err != nil {
-		return fmt.Errorf("failed to fetch pipeline: %w", err)
+		return err
 	}
 
 	// Check for parent pipeline context
@@ -45,9 +45,9 @@ func (e *Exporter) ExportPipeline(ctx context.Context) error {
 
 	jobs, err := e.gitClient.FetchJobs()
 	if err != nil {
-		return fmt.Errorf("failed to fetch jobs: %w", err)
+		return err
 	}
-	fmt.Printf("📋 Found %d jobs in pipeline\n", len(jobs))
+	fmt.Printf("Found %d jobs in pipeline\n", len(jobs))
 
 	// Create pipeline span
 	ctx, pipelineSpan := e.createPipelineSpan(ctx, pipeline)
@@ -57,7 +57,7 @@ func (e *Exporter) ExportPipeline(ctx context.Context) error {
 	otelutil.ExportTraceContext(ctx, e.config.Debug)
 
 	// Create job spans
-	fmt.Println("📤 Creating job spans...")
+	fmt.Println("Creating job spans...")
 	for _, job := range jobs {
 		if job.Status == "skipped" {
 			continue
@@ -94,10 +94,7 @@ func (e *Exporter) createPipelineSpan(ctx context.Context, pipeline *gitlab.Pipe
 	)
 
 	ctx, pipelineSpan := e.tracer.Start(ctx, pipelineName, startOpts...)
-	fmt.Printf("📤 Creating pipeline span: %s\n", pipelineName)
-	if e.config.Debug {
-		fmt.Printf("   Attributes: %v\n", pipelineAttrs)
-	}
+	fmt.Printf("Creating pipeline span: %s\n", pipelineName)
 
 	return ctx, pipelineSpan
 }
@@ -129,10 +126,7 @@ func (e *Exporter) createJobSpan(ctx context.Context, job *gitlab.JobData) error
 		trace.WithSpanKind(trace.SpanKindConsumer),
 		trace.WithAttributes(attrs...),
 	)
-	fmt.Printf("   ├─ Job: %s (status: %s)\n", job.Name, job.Status)
-	if e.config.Debug {
-		fmt.Printf("      Attributes: %v\n", attrs)
-	}
+	fmt.Printf("  Job: %s (%s)\n", job.Name, job.Status)
 	defer jobSpan.End(trace.WithTimestamp(*job.FinishedAt))
 
 	if job.Status == "failed" {

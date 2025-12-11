@@ -6,19 +6,22 @@ stages:
   - deploy-prod
   - .post
 
+default:
+  tags:
+    - my-runner-tag
+
 variables:
-  OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4318"
-  OTEL_EXPORTER_OTLP_PROTOCOL: "http"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4318"
 
 # Show received trace context
 validate:
   stage: validate
   script:
     - echo "Child pipeline started"
-    - echo "Parent pipeline URL: $PARENT_PIPELINE_URL"
-    - echo "Trace context: $TRACEPARENT"
-    - echo "Pipeline source: $CI_PIPELINE_SOURCE"
-    - echo "Parent pipeline ID: $CI_PARENT_PIPELINE_ID"
+    - echo "Parent pipeline URL:\ $PARENT_PIPELINE_URL"
+    - echo "Trace context:\ $TRACEPARENT"
+    - echo "Pipeline source:\ $CI_PIPELINE_SOURCE"
+    - echo "Parent pipeline ID:\ $CI_PARENT_PIPELINE_ID"
 
 # Production deployment
 deploy-prod:
@@ -31,10 +34,12 @@ deploy-prod:
 # Export correlated traces
 otel-export:
   stage: .post
-  image: golang:1.25
+  image:
+    name: gitlab-otel-exporter:0.0.1
+    entrypoint: [""]
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
     - echo "Exporting child pipeline traces..."
-    - ./gitlab-otel-exporter
+    - /cnb/process/cmd
   when: always
   allow_failure: true

@@ -8,8 +8,7 @@ stages:
   - .post
 
 variables:
-  OTEL_EXPORTER_OTLP_ENDPOINT: "jaeger:4318"
-  OTEL_EXPORTER_OTLP_PROTOCOL: "http"
+  OTEL_EXPORTER_OTLP_ENDPOINT: "otel-collector:4318"
 
 # Normal pipeline stages
 build:

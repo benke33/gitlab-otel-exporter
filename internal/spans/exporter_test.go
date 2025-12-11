@@ -10,9 +10,9 @@ import (
 	"go.opentelemetry.io/otel"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	"go.opentelemetry.io/otel/sdk/trace/tracetest"
-	"github.com/benke33/gitlab-otel-exporter/internal/config"
-	gitlabpkg "github.com/benke33/gitlab-otel-exporter/internal/gitlab"
-	"github.com/benke33/gitlab-otel-exporter/pkg/semconv"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/config"
+	gitlabpkg "gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/gitlab"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/pkg/semconv"
 )
 
 func TestCreateJobSpan(t *testing.T) {

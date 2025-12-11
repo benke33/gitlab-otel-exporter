@@ -9,9 +9,9 @@ type Config struct {
 	Endpoint string
 
 	// GitLab Configuration
-	Token     string
-	ServerURL string
-	ProjectID string
+	Token      string
+	ServerURL  string
+	ProjectID  string
 	PipelineID string
 
 	// Debug settings
@@ -24,7 +24,7 @@ func Load() *Config {
 		Protocol:   getEnv("OTEL_EXPORTER_OTLP_PROTOCOL", "http"),
 		Endpoint:   getEnv("OTEL_EXPORTER_OTLP_ENDPOINT", ""),
 		Token:      os.Getenv("GITLAB_TOKEN"),
-		ServerURL:  os.Getenv("CI_SERVER_URL"),
+		ServerURL:  getEnv("GITLAB_SERVER_URL", os.Getenv("CI_SERVER_URL")),
 		ProjectID:  os.Getenv("CI_PROJECT_ID"),
 		PipelineID: os.Getenv("CI_PIPELINE_ID"),
 		Debug:      os.Getenv("DEBUG") == "true",
