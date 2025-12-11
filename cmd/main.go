@@ -5,16 +5,16 @@ import (
 	"fmt"
 	"log"
 
-	"github.com/benke33/gitlab-otel-exporter/internal/config"
-	"github.com/benke33/gitlab-otel-exporter/internal/gitlab"
-	"github.com/benke33/gitlab-otel-exporter/internal/otel"
-	"github.com/benke33/gitlab-otel-exporter/internal/spans"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/config"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/gitlab"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/otel"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/spans"
 )
 
 func main() {
 	ctx := context.Background()
 
-	fmt.Println("🚀 Starting GitLab OpenTelemetry Exporter")
+	fmt.Println("Starting GitLab OpenTelemetry Exporter")
 
 	// Load configuration
 	cfg := config.Load()
@@ -42,5 +42,5 @@ func main() {
 		log.Fatalf("failed to export trace: %v", err)
 	}
 
-	fmt.Println("✅ Traces exported successfully")
+	fmt.Println("Traces exported successfully")
 }

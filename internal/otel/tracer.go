@@ -10,13 +10,13 @@ import (
 	"go.opentelemetry.io/otel/sdk/resource"
 	sdktrace "go.opentelemetry.io/otel/sdk/trace"
 	semconv "go.opentelemetry.io/otel/semconv/v1.27.0"
-	"github.com/benke33/gitlab-otel-exporter/internal/config"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/config"
 )
 
 // InitTracer initializes OpenTelemetry tracer with configuration
 func InitTracer(ctx context.Context, cfg *config.Config) (*sdktrace.TracerProvider, error) {
 	endpoint := cfg.GetEndpoint()
-	fmt.Printf("📡 Connecting to OTLP endpoint: %s (protocol: %s)\n", endpoint, cfg.Protocol)
+	fmt.Printf("Connecting to OTLP endpoint: %s (protocol: %s)\n", endpoint, cfg.Protocol)
 
 	exporter, err := CreateExporter(ctx, cfg.Protocol, endpoint)
 	if err != nil {

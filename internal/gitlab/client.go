@@ -1,13 +1,12 @@
 package gitlab
 
 import (
-	"fmt"
 	"log"
 	"strconv"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
-	"github.com/benke33/gitlab-otel-exporter/internal/config"
-	"github.com/benke33/gitlab-otel-exporter/internal/utils"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/config"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/utils"
 )
 
 // Client wraps GitLab API client with configuration
@@ -18,9 +17,9 @@ type Client struct {
 
 // NewClient creates a new GitLab client
 func NewClient(cfg *config.Config) (*Client, error) {
-	client, err := gitlab.NewClient(cfg.Token, gitlab.WithBaseURL(cfg.ServerURL))
+	client, err := gitlab.NewJobClient(cfg.Token, gitlab.WithBaseURL(cfg.ServerURL))
 	if err != nil {
-		return nil, fmt.Errorf("failed to create GitLab client: %w", err)
+		return nil, err
 	}
 
 	return &Client{

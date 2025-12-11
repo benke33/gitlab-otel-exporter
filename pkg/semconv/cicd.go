@@ -5,8 +5,8 @@ import (
 	"os"
 
 	"go.opentelemetry.io/otel/attribute"
-	"github.com/benke33/gitlab-otel-exporter/internal/gitlab"
-	"github.com/benke33/gitlab-otel-exporter/internal/utils"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/gitlab"
+	"gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/utils"
 )
 
 // PipelineAttributes returns CI/CD semantic convention attributes for pipeline

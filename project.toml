@@ -10,3 +10,7 @@ include = [
   "go.mod",
   "go.sum"
 ]
+
+[[build.env]]
+name = "BP_GO_TARGETS"
+value = "./cmd:gitlab-otel-exporter"

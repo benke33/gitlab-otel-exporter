@@ -5,7 +5,7 @@ import (
 	"testing"
 
 	gitlab "gitlab.com/gitlab-org/api/client-go"
-	gitlabpkg "github.com/benke33/gitlab-otel-exporter/internal/gitlab"
+	gitlabpkg "gitlab.internal.ericsson.com/ewikhen/gitlab-otel-exporter/internal/gitlab"
 )
 
 func TestRefType(t *testing.T) {

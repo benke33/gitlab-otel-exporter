@@ -13,16 +13,16 @@ variables:
 
 build:
   stage: build
-  image: golang:1.25
+  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
   script:
-    - go build -o otel-collector cmd/main.go
+    - go build -o gitlab-otel-exporter cmd/main.go
   artifacts:
     paths:
-      - otel-collector
+      - gitlab-otel-exporter
 
 build-buildpack:
   stage: build
-  image: docker:latest
+  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/docker:latest
   services:
     - name: docker:dind
       command: ["--tls=false"]
@@ -35,11 +35,11 @@ build-buildpack:
     - sleep 5
     - docker info
   script:
-    - pack build otel-gitlab-collector --builder paketobuildpacks/builder-jammy-base --trust-builder
+    - pack build gitlab-otel-exporter --builder paketobuildpacks/builder-jammy-base --trust-builder
 
 test:
   stage: test
-  image: golang:1.25
+  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
   script:
     - go test -v -cover ./...
 
@@ -52,9 +52,26 @@ deploy:
 
 otel-export:
   stage: .post
-  image: golang:1.25
+  image: armdocker.rnd.ericsson.se/dockerhub-ericsson-remote/golang:1.25
   script:
     - export GITLAB_TOKEN=${CI_JOB_TOKEN}
-    - go run cmd/main.go
+    - export GITLAB_SERVER_URL=https://gitlab.internal.ericsson.com
+    - go run cmd/main.go | grep TRACE_PARENT > trace.env || true
+  artifacts:
+    reports:
+      dotenv: trace.env
+  when: always
+  allow_failure: true
+
+trigger-downstream:
+  stage: .post
+  needs: ["otel-export"]
+  trigger:
+    project: sa-bos-gitops/projects/downstream-test-project
+    branch: main
+    strategy: depend
+  variables:
+    TRACEPARENT: $TRACE_PARENT
+    PARENT_PIPELINE_URL: $CI_PIPELINE_URL
   when: always
   allow_failure: true
